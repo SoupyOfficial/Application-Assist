@@ -36,15 +36,26 @@ def matches_url(url: str) -> bool:
 
 
 def detect_from_dom(page) -> bool:
-    """
-    Return True if the live page DOM confirms this is a Greenhouse form.
-
-    TODO: Implement DOM marker detection using Playwright.
-    Candidates:
-      - page.locator('[data-source="greenhouse"]').count() > 0
-      - page.locator('form[action*="greenhouse.io"]').count() > 0
-      - Check meta tags: page.locator('meta[name="application-name"]').get_attribute("content")
-      - Check for Greenhouse-specific CSS classes or JS globals (window.Greenhouse)
-    """
-    # TODO: Implement DOM-based detection
+    """Return True if the live page DOM confirms this is a Greenhouse form."""
+    try:
+        # Check for Greenhouse-specific form action
+        if page.locator('form[action*="greenhouse.io"]').count() > 0:
+            return True
+        # Check for Greenhouse data attribute
+        if page.locator('[data-source="greenhouse"]').count() > 0:
+            return True
+        # Check for #application wrapper common in Greenhouse embeds
+        if page.locator('#application').count() > 0:
+            # Confirm it's Greenhouse by checking for typical field structure
+            if page.locator('#application .field').count() > 0:
+                return True
+        # Check meta tags
+        meta = page.locator('meta[name="application-name"]')
+        if meta.count() > 0 and "greenhouse" in (meta.get_attribute("content") or "").lower():
+            return True
+        # Check for Greenhouse script tags
+        if page.locator('script[src*="greenhouse.io"]').count() > 0:
+            return True
+    except Exception:
+        pass
     return False

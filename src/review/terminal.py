@@ -19,40 +19,18 @@ from rich import box
 
 console = Console()
 
+AUTO_APPROVE_THRESHOLD = 0.8
+
 
 def review_session(fields: list) -> list:
     """
     Run an interactive terminal review session for all filled fields.
 
     Args:
-        fields: List of fill result dicts (from adapter.fill_form()):
-          [
-            {
-              "field":            <field descriptor dict>,
-              "proposed_answer":  <str | None>,
-              "confidence":       <float>,
-              "source":           <"answers_bank" | "profile" | "llm" | "manual">,
-              "requires_review":  <bool>,
-              "filled":           <bool>,
-            },
-            ...
-          ]
+        fields: List of fill result dicts from adapter.fill_form().
 
     Returns:
-        List of approved fill result dicts with "final_answer" added:
-          Each entry gets: "final_answer": <str>, "action": <"accept"|"reject"|"edit">
-
-    Session flow:
-      1. Show a summary table of all fields and their proposed answers.
-      2. Prompt: "Batch approve all high-confidence, non-review fields? (y/n)"
-         If yes: auto-accept all fields where confidence >= 0.8 and requires_review=False.
-      3. For each remaining field (requires_review=True or confidence < 0.8):
-         Show a panel with: question, proposed answer, confidence, source, notes.
-         Prompt: "(a)ccept / (r)eject / (e)dit"
-         Handle the user's choice.
-      4. Return the final list with decisions applied.
-
-    TODO: Implement the full review session using Rich.
+        List of approved fill result dicts with "final_answer" and "action" keys added.
     """
     console.print(Panel.fit(
         "[bold cyan]Application-Assist — Review Session[/bold cyan]",
@@ -63,40 +41,52 @@ def review_session(fields: list) -> list:
         console.print("[yellow]No fields to review.[/yellow]")
         return []
 
-    # --- Show summary table ---
+    # Show summary table
     _render_summary_table(fields)
 
-    # --- TODO: Batch approve prompt ---
-    # auto_approvable = [f for f in fields if f["confidence"] >= 0.8 and not f["requires_review"]]
-    # if auto_approvable:
-    #     batch = Prompt.ask(
-    #         f"[green]Batch approve {len(auto_approvable)} high-confidence fields?[/green]",
-    #         choices=["y", "n"], default="y"
-    #     )
+    # Partition into auto-approvable vs needs-review
+    auto_approvable = []
+    needs_review = []
+    for f in fields:
+        if (f.get("confidence", 0) >= AUTO_APPROVE_THRESHOLD
+                and not f.get("requires_review", False)
+                and f.get("proposed_answer") is not None):
+            auto_approvable.append(f)
+        else:
+            needs_review.append(f)
 
-    # --- TODO: Individual review loop ---
-    # for field in fields:
-    #     if field["requires_review"] or field["confidence"] < 0.8:
-    #         _review_single_field(field)
+    # Batch approve prompt
+    if auto_approvable:
+        batch = Prompt.ask(
+            f"\n[green]Batch approve {len(auto_approvable)} high-confidence fields?[/green]",
+            choices=["y", "n"],
+            default="y",
+        )
+        if batch == "y":
+            for f in auto_approvable:
+                f["final_answer"] = f.get("proposed_answer", "")
+                f["action"] = "accept"
+            console.print(f"[green]✓ {len(auto_approvable)} fields auto-approved.[/green]\n")
+        else:
+            # Move them to manual review
+            needs_review = auto_approvable + needs_review
+            auto_approvable = []
 
-    # Placeholder: return fields unchanged
-    console.print("[yellow]Review UI not yet fully implemented — returning all fields as-accepted.[/yellow]")
-    for field in fields:
-        field["final_answer"] = field.get("proposed_answer", "")
-        field["action"] = "accept"
+    # Individual review loop
+    if needs_review:
+        console.print(f"[cyan]Reviewing {len(needs_review)} field(s) individually...[/cyan]\n")
+        for f in needs_review:
+            _review_single_field(f)
 
-    return fields
+    # Render decision summary
+    all_fields = auto_approvable + needs_review
+    _render_decision_summary(all_fields)
+
+    return all_fields
 
 
 def _render_summary_table(fields: list):
-    """
-    Render a Rich table summarizing all fields and their proposed answers.
-
-    TODO: Build the table with columns:
-      # | Field Label | Proposed Answer | Confidence | Source | Review?
-    Color code confidence: green (high), yellow (medium), red (low/none).
-    Flag requires_review fields with a warning symbol.
-    """
+    """Render a Rich table summarizing all fields and their proposed answers."""
     table = Table(
         title="Fields to Review",
         box=box.ROUNDED,
@@ -113,11 +103,13 @@ def _render_summary_table(fields: list):
     for i, field in enumerate(fields, 1):
         label = field.get("field", {}).get("label", "Unknown")
         answer = str(field.get("proposed_answer", "")) or "[dim]—[/dim]"
+        # Truncate long answers for the table
+        if len(answer) > 60:
+            answer = answer[:57] + "..."
         confidence = field.get("confidence", 0.0)
         source = field.get("source", "none")
         requires_review = field.get("requires_review", False)
 
-        # Color confidence
         if confidence >= 0.8:
             conf_str = f"[green]{confidence:.2f}[/green]"
         elif confidence >= 0.5:
@@ -135,34 +127,61 @@ def _render_summary_table(fields: list):
 def _review_single_field(field: dict) -> dict:
     """
     Show a review panel for a single field and prompt for user action.
-
-    Args:
-        field: Fill result dict for a single field.
-
-    Returns:
-        Updated field dict with "final_answer" and "action" keys set.
-
-    TODO: Implement:
-      - Render a Panel with field label, proposed answer, confidence, source, notes
-      - Prompt: "(a)ccept / (r)eject / (e)dit [a]"
-      - On "a": field["final_answer"] = field["proposed_answer"], field["action"] = "accept"
-      - On "r": field["final_answer"] = None, field["action"] = "reject"
-      - On "e": prompt for custom answer text, field["action"] = "edit"
+    Updates field in-place with "final_answer" and "action" keys.
     """
-    # TODO: Implement single field review
     label = field.get("field", {}).get("label", "Unknown")
     proposed = field.get("proposed_answer", "")
+    notes = field.get("notes", "")
 
-    console.print(Panel(
+    panel_text = (
         f"[bold]Question:[/bold] {label}\n"
         f"[bold]Proposed:[/bold] {proposed or '[dim]no answer[/dim]'}\n"
         f"[bold]Confidence:[/bold] {field.get('confidence', 0.0):.2f}\n"
-        f"[bold]Source:[/bold] {field.get('source', 'none')}",
+        f"[bold]Source:[/bold] {field.get('source', 'none')}"
+    )
+    if notes:
+        panel_text += f"\n[bold]Notes:[/bold] [dim]{notes}[/dim]"
+
+    console.print(Panel(
+        panel_text,
         title="[cyan]Review Field[/cyan]",
         border_style="blue",
     ))
 
-    # TODO: Replace with actual Prompt once review loop is implemented
-    field["final_answer"] = proposed
-    field["action"] = "accept"
+    choice = Prompt.ask(
+        "[bold](a)[/bold]ccept / [bold](r)[/bold]eject / [bold](e)[/bold]dit",
+        choices=["a", "r", "e"],
+        default="a",
+    )
+
+    if choice == "a":
+        field["final_answer"] = proposed
+        field["action"] = "accept"
+        console.print("[green]  ✓ Accepted[/green]\n")
+    elif choice == "r":
+        field["final_answer"] = None
+        field["action"] = "reject"
+        console.print("[red]  ✗ Rejected[/red]\n")
+    elif choice == "e":
+        custom = Prompt.ask("[bold]Enter your answer[/bold]")
+        field["final_answer"] = custom
+        field["action"] = "edit"
+        console.print("[yellow]  ✎ Edited[/yellow]\n")
+
     return field
+
+
+def _render_decision_summary(fields: list):
+    """Render a summary of all accept/reject/edit decisions."""
+    accepted = sum(1 for f in fields if f.get("action") == "accept")
+    rejected = sum(1 for f in fields if f.get("action") == "reject")
+    edited = sum(1 for f in fields if f.get("action") == "edit")
+
+    console.print(Panel(
+        f"[green]Accepted:[/green] {accepted}  |  "
+        f"[red]Rejected:[/red] {rejected}  |  "
+        f"[yellow]Edited:[/yellow] {edited}  |  "
+        f"[bold]Total:[/bold] {len(fields)}",
+        title="[bold cyan]Review Complete[/bold cyan]",
+        border_style="cyan",
+    ))

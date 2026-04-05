@@ -4,8 +4,6 @@ detector.py — Main ATS platform detection orchestrator.
 Detection priority order:
   1. URL pattern matching  (fast, no browser needed)
   2. DOM marker inspection (requires Playwright page)
-  3. Form structure signatures (requires Playwright page)
-  4. Meta tag inspection (requires Playwright page)
 
 Returns a platform name string: greenhouse | lever | ashby | workday | generic
 """
@@ -36,12 +34,9 @@ def detect(url: str, page=None) -> str:
     # --- Step 2: DOM-based detection (requires live Playwright page) ---
     if page is not None:
         for platform_module in PLATFORMS:
-            # TODO: Implement detect_from_dom(page) in each platform module.
-            # Each module should inspect document structure, class names, form
-            # attributes, and meta tags to confirm the platform identity.
             if hasattr(platform_module, "detect_from_dom"):
                 if platform_module.detect_from_dom(page):
                     return platform_module.PLATFORM_NAME
 
-    # --- Fallback: generic Playwright-based form detection ---
+    # --- Fallback: generic ---
     return generic.PLATFORM_NAME

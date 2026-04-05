@@ -151,9 +151,14 @@ def get_stats() -> dict:
             "SELECT COALESCE(SUM(time_saved_seconds), 0) FROM applications"
         ).fetchone()[0]
 
+        platform_rows = conn.execute(
+            "SELECT ats_platform, COUNT(*) FROM applications GROUP BY ats_platform"
+        ).fetchall()
+        by_platform = {row[0] or "unknown": row[1] for row in platform_rows}
+
     return {
         "total_applications": total,
         "submitted": submitted,
         "total_time_saved_seconds": time_saved,
-        "by_platform": {},  # TODO: implement GROUP BY query
+        "by_platform": by_platform,
     }

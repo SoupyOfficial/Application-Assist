@@ -33,15 +33,18 @@ def matches_url(url: str) -> bool:
 
 
 def detect_from_dom(page) -> bool:
-    """
-    Return True if the live page DOM confirms this is a Lever form.
-
-    TODO: Implement DOM marker detection using Playwright.
-    Candidates:
-      - page.locator('.lever-apply').count() > 0
-      - page.locator('[data-lever-source]').count() > 0
-      - Check for Lever-specific JS globals or script tags
-      - Check form action for lever.co domain
-    """
-    # TODO: Implement DOM-based detection
+    """Return True if the live page DOM confirms this is a Lever form."""
+    try:
+        if page.locator('.lever-application-form').count() > 0:
+            return True
+        if page.locator('[data-lever-source]').count() > 0:
+            return True
+        if page.locator('form[action*="lever.co"]').count() > 0:
+            return True
+        if page.locator('script[src*="lever.co"]').count() > 0:
+            return True
+        if page.locator('.application-page .posting-page').count() > 0:
+            return True
+    except Exception:
+        pass
     return False

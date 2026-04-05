@@ -34,14 +34,18 @@ def matches_url(url: str) -> bool:
 
 
 def detect_from_dom(page) -> bool:
-    """
-    Return True if the live page DOM confirms this is an Ashby form.
-
-    TODO: Implement DOM marker detection using Playwright.
-    Candidates:
-      - Look for Ashby-specific React root or component names
-      - Check for script/link tags pointing to ashbyhq.com
-      - Check window.__ASHBY__ or similar JS globals
-    """
-    # TODO: Implement DOM-based detection
+    """Return True if the live page DOM confirms this is an Ashby form."""
+    try:
+        if page.locator('script[src*="ashbyhq.com"]').count() > 0:
+            return True
+        if page.locator('link[href*="ashbyhq.com"]').count() > 0:
+            return True
+        if page.locator('[data-ashby]').count() > 0:
+            return True
+        # Check for Ashby JS global
+        has_ashby = page.evaluate("typeof window.__ASHBY__ !== 'undefined'")
+        if has_ashby:
+            return True
+    except Exception:
+        pass
     return False
