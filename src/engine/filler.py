@@ -9,7 +9,7 @@ After any file upload (resume), the caller should re-scan fields
 because many ATS platforms auto-populate fields from the parsed resume.
 """
 
-import difflib
+from rapidfuzz import fuzz, process
 import sys
 
 
@@ -51,7 +51,12 @@ def fill_field(page, field_descriptor: dict, answer: str, field_type: str) -> bo
 
         elif field_type == "radio":
             name = field_descriptor.get("name", "")
-            radios = page.locator(f'input[type="radio"][name="{name}"]').all()
+            if not name:
+                print(f"[warn] Radio field '{field_descriptor.get('label', '?')}' has no name attribute — skipping", file=sys.stderr)
+                return False
+            # Escape CSS special chars in name attribute
+            escaped_name = name.replace("\\", "\\\\").replace('"', '\\"').replace("]", "\\]")
+            radios = page.locator(f'input[type="radio"][name="{escaped_name}"]').all()
             # Exact label match pass
             for radio in radios:
                 label = get_label_for_input(page, radio)
@@ -131,9 +136,9 @@ def find_best_option_match(answer: str, options: list) -> str | None:
             return option
 
     # Fuzzy match
-    close = difflib.get_close_matches(answer, options, n=1, cutoff=0.6)
-    if close:
-        return close[0]
+    result = process.extractOne(answer, options, score_cutoff=60)
+    if result:
+        return result[0]
 
     return None
 
@@ -187,7 +192,7 @@ def _find_best_label_index(answer: str, labels: list) -> int | None:
     for i, label in enumerate(labels):
         if not label:
             continue
-        score = difflib.SequenceMatcher(None, answer_lower, label.lower().strip()).ratio()
+        score = fuzz.ratio(answer_lower, label.lower().strip()) / 100.0
         if score > best_score:
             best_score = score
             best_idx = i

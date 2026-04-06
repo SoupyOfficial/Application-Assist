@@ -2,10 +2,33 @@
 base.py — Abstract base class for ATS platform adapters.
 
 All platform-specific adapters must subclass BaseAdapter and implement
-the three core methods: detect_fields, fill_form, and submit.
+the core methods.  Provides a default multi-page fill orchestration that
+works for common cases; platform adapters can override for custom logic.
 """
 
 from abc import ABC, abstractmethod
+
+from src.adapters.pipeline import run_fill_pipeline
+from src.browser.helpers import (
+    wait_for_page_ready,
+    wait_for_navigation_settle,
+    detect_login_wall,
+    detect_captcha,
+    wait_for_user_to_clear_blocker,
+    get_form_frame,
+    discover_fields_with_shadow_dom,
+    detect_multi_page,
+    try_next_page,
+    is_final_step,
+    find_and_click_submit,
+)
+
+
+# Maximum number of pages/steps to iterate through before giving up
+MAX_PAGES = 15
+
+# Minimum number of fields we expect; below this we try shadow DOM
+MIN_EXPECTED_FIELDS = 2
 
 
 class BaseAdapter(ABC):
@@ -16,15 +39,24 @@ class BaseAdapter(ABC):
       1. Detecting/extracting fields from the live Playwright page.
       2. Orchestrating the fill process (calling the fill engine per field).
       3. Submitting the form when authorized by the mode and review UI.
+
+    The base class provides a default multi-page ``fill_form()`` that:
+      - detects iframes and switches context automatically
+      - detects login walls / CAPTCHAs and pauses for the user
+      - loops through pages calling detect_fields → pipeline → next
+      - can be overridden completely by platform adapters
     """
+
+    # Subclasses can set this to True if the platform is always multi-page
+    multi_page: bool = False
 
     @abstractmethod
     def detect_fields(self, page) -> list:
         """
-        Scan the current page and return a list of field descriptors.
+        Scan the current page/frame and return a list of field descriptors.
 
         Args:
-            page: Playwright Page object (already navigated to the job URL).
+            page: Playwright Page or Frame object.
 
         Returns:
             List of field descriptor dicts, each containing at minimum:
@@ -34,68 +66,83 @@ class BaseAdapter(ABC):
                 "field_type": <"text" | "select" | "radio" | "checkbox" | "file" | "date">,
                 "name":       <input name or id attribute>,
                 "required":   <bool>,
-                "section":    <string — logical section name, e.g. "personal_info">,
+                "section":    <string — logical section name>,
               }
-
-        TODO: Each platform adapter implements this differently:
-          - Greenhouse: Use known CSS selectors for its standard form structure.
-          - Lever: Similar — known class names and input patterns.
-          - Workday: Use data-automation-id attributes; handle multi-step pagination.
-          - Generic: Use proximity-based label-to-input mapping.
         """
         raise NotImplementedError
 
-    @abstractmethod
     def fill_form(self, page, profile: dict, answers: dict, mode: str) -> list:
         """
-        Fill the form using the fill engine, returning a list of fill results.
+        Default multi-page-aware fill orchestration.
 
-        Args:
-            page:    Playwright Page object.
-            profile: Parsed profile.json dict.
-            answers: Parsed answers.json dict.
-            mode:    Submission mode string.
+        1. Resolve iframe context
+        2. Check for login wall / CAPTCHA
+        3. Loop: detect → fill → next page  (single-page forms exit after 1 iteration)
+        4. Return aggregated results for review UI
 
-        Returns:
-            List of fill result dicts — one per field — containing:
-              {
-                "field":          <field descriptor from detect_fields>,
-                "proposed_answer": <string>,
-                "confidence":     <float 0.0–1.0>,
-                "source":         <"profile" | "answers" | "llm" | "manual">,
-                "requires_review": <bool>,
-                "filled":         <bool>,
-              }
-
-        TODO: Orchestration flow per adapter:
-          1. Call detect_fields() to get field list.
-          2. For each field, call engine.normalizer.normalize_question(label).
-          3. Call engine.matcher.match_answer(intent, profile, answers).
-          4. Call engine.confidence.score_confidence(match_result).
-          5. If confidence >= threshold, call engine.filler.fill_field(page, ...).
-          6. After any file upload, re-call detect_fields() to catch auto-populated fields.
-          7. Return the results list for the review UI.
+        Platform adapters may override this entirely (e.g. Workday).
         """
-        raise NotImplementedError
+        # --- resolve iframe context -----------------------------------------
+        frame = get_form_frame(page)
 
-    @abstractmethod
+        # --- blocker detection -----------------------------------------------
+        if detect_login_wall(frame):
+            wait_for_user_to_clear_blocker(frame, "login wall")
+        if detect_captcha(frame):
+            wait_for_user_to_clear_blocker(frame, "CAPTCHA")
+
+        wait_for_page_ready(frame)
+
+        # --- determine if multi-page ----------------------------------------
+        is_multi = self.multi_page or detect_multi_page(frame)
+        all_results: list = []
+
+        for step_num in range(MAX_PAGES):
+            fields = self.detect_fields(frame)
+
+            # Shadow DOM fallback if we found suspiciously few fields
+            if len(fields) < MIN_EXPECTED_FIELDS:
+                shadow_fields = discover_fields_with_shadow_dom(frame)
+                if len(shadow_fields) > len(fields):
+                    fields = shadow_fields
+
+            if not fields and is_multi:
+                # Possibly a blank interstitial; try advancing
+                if try_next_page(frame):
+                    wait_for_navigation_settle(frame)
+                    continue
+                break
+
+            if not fields:
+                break
+
+            step_results = run_fill_pipeline(
+                frame, fields, profile, answers, mode,
+                redetect_after_upload=lambda p: self.detect_fields(p),
+            )
+            all_results.extend(step_results)
+
+            # If single-page, we're done after one pass
+            if not is_multi:
+                break
+
+            # If multi-page, check for final step or try to advance
+            if is_final_step(frame):
+                print("[info] Reached final review/submit step.")
+                break
+
+            if not try_next_page(frame):
+                break
+
+            wait_for_navigation_settle(frame)
+
+        return all_results
+
     def submit(self, page) -> bool:
         """
-        Submit the completed form.
+        Default submit implementation using the shared button finder.
 
-        Args:
-            page: Playwright Page object.
-
-        Returns:
-            True if submission appeared successful, False otherwise.
-
-        TODO: Each platform has a different submit mechanism:
-          - Greenhouse/Lever: Click the final "Submit Application" button.
-          - Workday: Multi-step — must navigate through all steps before final submit.
-          - Generic: Find and click the primary form submit button.
-
-        Safety: This method should NEVER be called unless the calling code
-        has already confirmed that mode != "fill_only" and the review UI
-        has approved the submission.
+        Platform adapters should override this with their specific selectors.
         """
-        raise NotImplementedError
+        frame = get_form_frame(page)
+        return find_and_click_submit(frame)

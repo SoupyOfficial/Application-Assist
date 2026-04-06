@@ -1,1 +1,872 @@
-{"meta":{"version":"1.0.0","last_updated":"2026-04-05","description":"Normalized answer bank for job application automation. Each entry maps a canonical intent to one or more phrasings and a structured answer."},"answers":[{"id":"auth_work_us","intent":"work_authorization_us","canonical_question":"Are you legally authorized to work in the United States?","match_phrases":["Are you legally authorized to work in the United States?","Are you authorized to work in the US?","Do you have the legal right to work in the United States?","Are you eligible to work in the United States?","Can you legally work in the US without restriction?","Work authorization status"],"answer":"Yes","answer_long":"Yes, I am a U.S. citizen and am legally authorized to work in the United States without restriction.","field_type":["boolean","select","text"],"confidence":"high","auto_submit":false,"requires_review":true,"notes":"Always review — some forms combine this with sponsorship or have unusual phrasing"},{"id":"auth_sponsorship","intent":"requires_sponsorship","canonical_question":"Do you now or will you in the future require sponsorship?","match_phrases":["Do you now or will you in the future require sponsorship?","Will you now or in the future require visa sponsorship?","Do you require employer sponsorship to work in the US?","Are you eligible to work without employer sponsorship?","Will you require sponsorship for employment visa status?","Do you need visa support now or in the future?","Sponsorship required?"],"answer":"No","answer_long":"No, I do not require sponsorship now or in the future. I am a U.S. citizen.","answer_inverted":"Yes","answer_inverted_note":"For questions phrased as 'Are you eligible WITHOUT sponsorship?' the answer is Yes","field_type":["boolean","select","text"],"confidence":"high","auto_submit":false,"requires_review":true,"notes":"Watch for inverted phrasing. Some forms ask 'can you work WITHOUT sponsorship' (answer: Yes)"},{"id":"auth_citizenship","intent":"citizenship_status","canonical_question":"What is your citizenship status?","match_phrases":["What is your citizenship status?","Citizenship","Are you a US citizen?","Immigration status","Are you a citizen or permanent resident?"],"answer":"U.S. citizen","field_type":["select","text"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"clearance_status","intent":"security_clearance","canonical_question":"Do you have an active security clearance?","match_phrases":["Do you have an active security clearance?","Security clearance status","Do you hold a security clearance?","Current clearance level"],"answer":"No","answer_long":"I do not currently hold a security clearance but am willing to obtain one if required.","field_type":["boolean","select","text"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"relocation","intent":"willing_to_relocate","canonical_question":"Are you willing to relocate?","match_phrases":["Are you willing to relocate?","Would you be open to relocation?","Can you relocate for this position?","Relocation willingness","Are you open to relocating?"],"answer":"Depends","answer_long":"I'm open to relocation depending on the role and location.","field_type":["boolean","select","text"],"confidence":"medium","auto_submit":false,"requires_review":true,"notes":"Depends on specific location — flag for review"},{"id":"remote_preference","intent":"work_arrangement","canonical_question":"What is your preferred work arrangement?","match_phrases":["What is your preferred work arrangement?","Remote, hybrid, or on-site?","Work location preference","Are you open to remote work?","Are you open to working in-office?","Preferred work model"],"answer":"Remote","answer_long":"I prefer remote work but am open to hybrid or on-site arrangements depending on the role.","field_type":["select","text"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"salary_expectations","intent":"salary_expectations","canonical_question":"What are your salary expectations?","match_phrases":["What are your salary expectations?","Desired salary","Expected compensation","Salary requirements","What is your desired salary range?","Compensation expectations","What are your pay expectations?"],"answer":"$110,000 - $120,000","answer_long":"I'm targeting roles in the $110,000 to $120,000 range, though I'm open to discussing the full compensation package depending on the role, scope, and growth opportunity.","field_type":["text","number_range"],"confidence":"high","auto_submit":false,"requires_review":true,"notes":"NEVER auto-submit. Always review in context of specific role."},{"id":"start_date","intent":"earliest_start_date","canonical_question":"What is your earliest available start date?","match_phrases":["What is your earliest available start date?","When can you start?","Earliest start date","Available start date","How soon can you start?"],"answer":null,"answer_long":"I can be available within approximately two weeks of an accepted offer, though timing is flexible depending on circumstances.","field_type":["date","text"],"confidence":"medium","auto_submit":false,"requires_review":true,"notes":"Notice period is approximately 2 weeks. Exact date depends on circumstances."},{"id":"travel_willingness","intent":"willing_to_travel","canonical_question":"Are you willing to travel?","match_phrases":["Are you willing to travel?","Travel requirements","What percentage of travel is acceptable?","Can you travel for this role?","Travel willingness"],"answer":"Yes","answer_long":"Yes, limited travel is fine; ideally up to 10-15% depending on the role.","answer_percentage":15,"field_type":["boolean","select","text","number"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"background_check","intent":"background_check_consent","canonical_question":"Are you willing to undergo a background check?","match_phrases":["Are you willing to undergo a background check?","Do you consent to a background check?","Background check authorization","Will you submit to a background investigation?"],"answer":"Yes","field_type":["boolean","select"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"drug_screening","intent":"drug_screening_consent","canonical_question":"Are you willing to undergo drug screening?","match_phrases":["Are you willing to undergo drug screening?","Do you consent to a drug test?","Drug screening","Pre-employment drug test"],"answer":"No","field_type":["boolean","select"],"confidence":"high","auto_submit":false,"requires_review":true,"notes":"Preferred answer is No. Review in context — may be a dealbreaker for some roles."},{"id":"noncompete","intent":"noncompete_agreement","canonical_question":"Do you have a non-compete or non-solicitation agreement?","match_phrases":["Do you have a non-compete or non-solicitation agreement?","Are you bound by a non-compete?","Non-compete status","Are you subject to any restrictive covenants?"],"answer":"No","field_type":["boolean","select","text"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"previous_employee","intent":"previous_employee","canonical_question":"Have you previously worked at this company?","match_phrases":["Have you previously worked at this company?","Are you a former employee?","Have you applied before?","Previous employment with us"],"answer":"No","field_type":["boolean","select"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"referral_source","intent":"how_did_you_hear","canonical_question":"How did you hear about this role?","match_phrases":["How did you hear about this role?","How did you find this job?","Source","Referral source","Where did you learn about this opportunity?","How did you hear about us?"],"answer":"LinkedIn / company careers page / recruiter outreach","field_type":["select","text"],"confidence":"medium","auto_submit":false,"requires_review":true,"notes":"Select the most accurate option from the dropdown. Defaults vary by actual source."},{"id":"years_experience_java","intent":"years_experience_specific","canonical_question":"How many years of experience do you have with Java?","match_phrases":["How many years of experience do you have with Java?","Years of Java experience","Java experience (years)"],"answer":"4","field_type":["number","text","select"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"years_experience_python","intent":"years_experience_specific","canonical_question":"How many years of experience do you have with Python?","match_phrases":["How many years of experience do you have with Python?","Years of Python experience","Python experience (years)"],"answer":"3","field_type":["number","text","select"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"years_experience_javascript","intent":"years_experience_specific","canonical_question":"How many years of experience do you have with JavaScript?","match_phrases":["How many years of experience do you have with JavaScript?","Years of JavaScript experience","JavaScript experience (years)"],"answer":"3","field_type":["number","text","select"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"years_experience_generic","intent":"years_experience_total","canonical_question":"How many years of professional software development experience do you have?","match_phrases":["How many years of professional experience do you have?","Total years of experience","Years of software development experience","Professional experience (years)","How many years have you been a software engineer?"],"answer":"3","answer_long":"Approximately 3 years of professional software development experience, plus academic and personal project work dating back to 2019.","field_type":["number","text","select"],"confidence":"high","auto_submit":true,"requires_review":false},{"id":"why_looking","intent":"reason_for_job_search","canonical_question":"Why are you looking for a new role?","match_phrases":["Why are you looking for a new role?","Why are you leaving your current position?","What motivates your job search?","Reason for leaving","Why do you want to leave your current job?"],"answer_long":"I'm looking for a role where I can continue growing as an engineer while taking on larger technical ownership, building impactful products, and working on systems at a broader scale.","field_type":["text"],"confidence":"high","auto_submit":false,"requires_review":true},{"id":"why_this_company","intent":"interest_in_company","canonical_question":"Why are you interested in this company?","match_phrases":["Why are you interested in this company?","Why do you want to work here?","What attracted you to this role?","Why this company?","Tell us why you'd be a great fit"],"answer_template":"Reference the company's product, mission, engineering culture, or technical challenge; connect that to your background in ownership and delivery; close with why the role matches your next step.","field_type":["text"],"confidence":"low","auto_submit":false,"requires_review":true,"notes":"ALWAYS requires customization per company. Never auto-fill with generic text."},{"id":"strengths","intent":"candidate_strengths","canonical_question":"What are your strengths?","match_phrases":["What are your strengths?","What do you consider your key strengths?","Describe your top skills","What are you best at?"],"answer_long":"End-to-end ownership, problem solving, backend development, architecture thinking, and translating ambiguous requirements into working solutions.","field_type":["text"],"confidence":"high","auto_submit":false,"requires_review":true},{"id":"weakness","intent":"candidate_weakness","canonical_question":"What is your greatest weakness or area of growth?","match_phrases":["What is your greatest weakness?","What is your area of growth?","Describe a weakness","What would you like to improve about yourself?"],"answer_long":"I tend to hold myself to a high standard and can spend extra time refining a solution when a faster first version would be sufficient. I've gotten better at balancing quality with iteration speed and aligning effort to the business need.","field_type":["text"],"confidence":"high","auto_submit":false,"requires_review":true},{"id":"ideal_environment","intent":"ideal_work_environment","canonical_question":"Describe your ideal work environment.","match_phrases":["Describe your ideal work environment","What kind of work environment do you thrive in?","What is your preferred company culture?","Ideal team or workplace?"],"answer_long":"A collaborative environment with strong ownership, clear priorities, thoughtful technical discussion, and room to solve real problems without unnecessary process overhead.","field_type":["text"],"confidence":"high","auto_submit":false,"requires_review":true},{"id":"five_year_plan","intent":"career_goals_5yr","canonical_question":"Where do you see yourself in 5 years?","match_phrases":["Where do you see yourself in 5 years?","What are your long-term career goals?","Where do you see your career heading?","Five year plan"],"answer_long":"I see myself as a more senior engineer with a strong track record of technical ownership, system design, and mentorship, contributing meaningfully to product and engineering direction.","field_type":["text"],"confidence":"high","auto_submit":false,"requires_review":true},{"id":"experience_with_skill","intent":"skill_experience_boolean","canonical_question":"Do you have experience with [skill]?","match_phrases":["Do you have experience with","Have you worked with","Are you proficient in","Do you know","Familiarity with"],"answer":null,"field_type":["boolean","select"],"confidence":"dynamic","auto_submit":false,"requires_review":true,"notes":"Cross-reference against skills list in profile.json. Auto-fill Yes for listed skills, flag unknown skills for review."}],"behavioral_stories":[{"id":"story_leadership","themes":["leadership","ownership","independence","trust"],"situation":"Stepped into a more independent role on a small engineering team with less direct oversight.","action":"Handled technical decision-making, supported project execution, and carried backend responsibilities independently.","result":"Increased trust from leadership, broader ownership of critical systems, and stronger positioning as a go-to backend contributor.","relevant_for":["backend","fullstack","leadership"]},{"id":"story_ambiguity","themes":["ambiguity","problem_solving","data","communication"],"situation":"Worked on AI and sensor-data efforts where the data was complex and unstructured, needing to become client-usable.","action":"Interpreted patterns, supported analysis and visualization, and translated technical findings into actionable insight.","result":"Delivered client-facing analysis that supported decision-making around locomotive maintenance and fault detection.","relevant_for":["ai","data","backend"]},{"id":"story_e2e_product","themes":["end_to_end","product_development","initiative","architecture"],"situation":"Identified personal and family needs that could be solved with custom software.","action":"Built personal products and apps from concept and architecture through implementation and refinement, handling every stage independently.","result":"Delivered functional products demonstrating full-lifecycle ownership and practical architecture skills.","relevant_for":["fullstack","product","mobile"]}],"demographic_defaults":{"gender":"Decline to self-identify","race_ethnicity":"Decline to self-identify","veteran_status":"I am not a protected veteran","disability_status":"Decline to self-identify","auto_fill":true,"common_select_values":{"gender_decline":["Decline to self-identify","Prefer not to say","I do not wish to answer","Decline"],"race_decline":["Decline to self-identify","Prefer not to say","Two or more races (not Hispanic or Latino)","Decline"],"veteran_decline":["I am not a protected veteran","Prefer not to say","Decline to self-identify","No"],"disability_decline":["Decline to self-identify","Prefer not to answer","I do not wish to answer","Decline"]}}}
+{
+  "meta": {
+    "version": "1.0.0",
+    "last_updated": "2026-04-05",
+    "description": "Normalized answer bank for job application automation. Each entry maps a canonical intent to one or more phrasings and a structured answer."
+  },
+  "answers": [
+    {
+      "id": "auth_work_us",
+      "intent": "work_authorization_us",
+      "canonical_question": "Are you legally authorized to work in the United States?",
+      "match_phrases": [
+        "Are you legally authorized to work in the United States?",
+        "Are you authorized to work in the US?",
+        "Do you have the legal right to work in the United States?",
+        "Are you eligible to work in the United States?",
+        "Can you legally work in the US without restriction?",
+        "Work authorization status"
+      ],
+      "answer": "Yes",
+      "answer_long": "Yes, I am a U.S. citizen and am legally authorized to work in the United States without restriction.",
+      "field_type": [
+        "boolean",
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Always review — some forms combine this with sponsorship or have unusual phrasing"
+    },
+    {
+      "id": "auth_sponsorship",
+      "intent": "requires_sponsorship",
+      "canonical_question": "Do you now or will you in the future require sponsorship?",
+      "match_phrases": [
+        "Do you now or will you in the future require sponsorship?",
+        "Will you now or in the future require visa sponsorship?",
+        "Do you require employer sponsorship to work in the US?",
+        "Are you eligible to work without employer sponsorship?",
+        "Will you require sponsorship for employment visa status?",
+        "Do you need visa support now or in the future?",
+        "Sponsorship required?"
+      ],
+      "answer": "No",
+      "answer_long": "No, I do not require sponsorship now or in the future. I am a U.S. citizen.",
+      "answer_inverted": "Yes",
+      "answer_inverted_note": "For questions phrased as 'Are you eligible WITHOUT sponsorship?' the answer is Yes",
+      "field_type": [
+        "boolean",
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Watch for inverted phrasing. Some forms ask 'can you work WITHOUT sponsorship' (answer: Yes)"
+    },
+    {
+      "id": "auth_citizenship",
+      "intent": "citizenship_status",
+      "canonical_question": "What is your citizenship status?",
+      "match_phrases": [
+        "What is your citizenship status?",
+        "Citizenship",
+        "Are you a US citizen?",
+        "Immigration status",
+        "Are you a citizen or permanent resident?"
+      ],
+      "answer": "U.S. citizen",
+      "field_type": [
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "clearance_status",
+      "intent": "security_clearance",
+      "canonical_question": "Do you have an active security clearance?",
+      "match_phrases": [
+        "Do you have an active security clearance?",
+        "Security clearance status",
+        "Do you hold a security clearance?",
+        "Current clearance level"
+      ],
+      "answer": "No",
+      "answer_long": "I do not currently hold a security clearance but am willing to obtain one if required.",
+      "field_type": [
+        "boolean",
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "relocation",
+      "intent": "willing_to_relocate",
+      "canonical_question": "Are you willing to relocate?",
+      "match_phrases": [
+        "Are you willing to relocate?",
+        "Would you be open to relocation?",
+        "Can you relocate for this position?",
+        "Relocation willingness",
+        "Are you open to relocating?"
+      ],
+      "answer": "Depends",
+      "answer_long": "I'm open to relocation depending on the role and location.",
+      "field_type": [
+        "boolean",
+        "select",
+        "text"
+      ],
+      "confidence": "medium",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Depends on specific location — flag for review"
+    },
+    {
+      "id": "remote_preference",
+      "intent": "work_arrangement",
+      "canonical_question": "What is your preferred work arrangement?",
+      "match_phrases": [
+        "What is your preferred work arrangement?",
+        "Remote, hybrid, or on-site?",
+        "Work location preference",
+        "Are you open to remote work?",
+        "Are you open to working in-office?",
+        "Preferred work model"
+      ],
+      "answer": "Remote",
+      "answer_long": "I prefer remote work but am open to hybrid or on-site arrangements depending on the role.",
+      "field_type": [
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "salary_expectations",
+      "intent": "salary_expectations",
+      "canonical_question": "What are your salary expectations?",
+      "match_phrases": [
+        "What are your salary expectations?",
+        "Desired salary",
+        "Expected compensation",
+        "Salary requirements",
+        "What is your desired salary range?",
+        "Compensation expectations",
+        "What are your pay expectations?"
+      ],
+      "answer": "$110,000 - $120,000",
+      "answer_long": "I'm targeting roles in the $110,000 to $120,000 range, though I'm open to discussing the full compensation package depending on the role, scope, and growth opportunity.",
+      "field_type": [
+        "text",
+        "number_range"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "NEVER auto-submit. Always review in context of specific role."
+    },
+    {
+      "id": "start_date",
+      "intent": "earliest_start_date",
+      "canonical_question": "What is your earliest available start date?",
+      "match_phrases": [
+        "What is your earliest available start date?",
+        "When can you start?",
+        "Earliest start date",
+        "Available start date",
+        "How soon can you start?"
+      ],
+      "answer": null,
+      "answer_long": "I can be available within approximately two weeks of an accepted offer, though timing is flexible depending on circumstances.",
+      "field_type": [
+        "date",
+        "text"
+      ],
+      "confidence": "medium",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Notice period is approximately 2 weeks. Exact date depends on circumstances."
+    },
+    {
+      "id": "travel_willingness",
+      "intent": "willing_to_travel",
+      "canonical_question": "Are you willing to travel?",
+      "match_phrases": [
+        "Are you willing to travel?",
+        "Travel requirements",
+        "What percentage of travel is acceptable?",
+        "Can you travel for this role?",
+        "Travel willingness"
+      ],
+      "answer": "Yes",
+      "answer_long": "Yes, limited travel is fine; ideally up to 10-15% depending on the role.",
+      "answer_percentage": 15,
+      "field_type": [
+        "boolean",
+        "select",
+        "text",
+        "number"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "background_check",
+      "intent": "background_check_consent",
+      "canonical_question": "Are you willing to undergo a background check?",
+      "match_phrases": [
+        "Are you willing to undergo a background check?",
+        "Do you consent to a background check?",
+        "Background check authorization",
+        "Will you submit to a background investigation?"
+      ],
+      "answer": "Yes",
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "drug_screening",
+      "intent": "drug_screening_consent",
+      "canonical_question": "Are you willing to undergo drug screening?",
+      "match_phrases": [
+        "Are you willing to undergo drug screening?",
+        "Do you consent to a drug test?",
+        "Drug screening",
+        "Pre-employment drug test"
+      ],
+      "answer": "No",
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Preferred answer is No. Review in context — may be a dealbreaker for some roles."
+    },
+    {
+      "id": "noncompete",
+      "intent": "noncompete_agreement",
+      "canonical_question": "Do you have a non-compete or non-solicitation agreement?",
+      "match_phrases": [
+        "Do you have a non-compete or non-solicitation agreement?",
+        "Are you bound by a non-compete?",
+        "Non-compete status",
+        "Are you subject to any restrictive covenants?"
+      ],
+      "answer": "No",
+      "field_type": [
+        "boolean",
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "previous_employee",
+      "intent": "previous_employee",
+      "canonical_question": "Have you previously worked at this company?",
+      "match_phrases": [
+        "Have you previously worked at this company?",
+        "Are you a former employee?",
+        "Have you applied before?",
+        "Previous employment with us"
+      ],
+      "answer": "No",
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "referral_source",
+      "intent": "how_did_you_hear",
+      "canonical_question": "How did you hear about this role?",
+      "match_phrases": [
+        "How did you hear about this role?",
+        "How did you find this job?",
+        "Source",
+        "Referral source",
+        "Where did you learn about this opportunity?",
+        "How did you hear about us?"
+      ],
+      "answer": "LinkedIn / company careers page / recruiter outreach",
+      "field_type": [
+        "select",
+        "text"
+      ],
+      "confidence": "medium",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Select the most accurate option from the dropdown. Defaults vary by actual source."
+    },
+    {
+      "id": "years_experience_skill",
+      "intent": "years_experience_specific",
+      "canonical_question": "How many years of experience do you have with [skill]?",
+      "match_phrases": [
+        "How many years of experience do you have with",
+        "Years of experience with",
+        "experience (years)"
+      ],
+      "answer": null,
+      "field_type": [
+        "number",
+        "text",
+        "select"
+      ],
+      "confidence": "dynamic",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Resolved dynamically from profile.skills[]. Falls through to skill-aware matcher."
+    },
+    {
+      "id": "years_experience_generic",
+      "intent": "years_experience_total",
+      "canonical_question": "How many years of professional software development experience do you have?",
+      "match_phrases": [
+        "How many years of professional experience do you have?",
+        "Total years of experience",
+        "Years of software development experience",
+        "Professional experience (years)",
+        "How many years have you been a software engineer?"
+      ],
+      "answer": "3",
+      "answer_long": "Approximately 3 years of professional software development experience, plus academic and personal project work dating back to 2019.",
+      "field_type": [
+        "number",
+        "text",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "why_looking",
+      "intent": "reason_for_job_search",
+      "canonical_question": "Why are you looking for a new role?",
+      "match_phrases": [
+        "Why are you looking for a new role?",
+        "Why are you leaving your current position?",
+        "What motivates your job search?",
+        "Reason for leaving",
+        "Why do you want to leave your current job?"
+      ],
+      "answer_long": "I'm looking for a role where I can continue growing as an engineer while taking on larger technical ownership, building impactful products, and working on systems at a broader scale.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "why_this_company",
+      "intent": "interest_in_company",
+      "canonical_question": "Why are you interested in this company?",
+      "match_phrases": [
+        "Why are you interested in this company?",
+        "Why do you want to work here?",
+        "What attracted you to this role?",
+        "Why this company?",
+        "Tell us why you'd be a great fit"
+      ],
+      "answer_template": "Reference the company's product, mission, engineering culture, or technical challenge; connect that to your background in ownership and delivery; close with why the role matches your next step.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "low",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "ALWAYS requires customization per company. Never auto-fill with generic text."
+    },
+    {
+      "id": "strengths",
+      "intent": "candidate_strengths",
+      "canonical_question": "What are your strengths?",
+      "match_phrases": [
+        "What are your strengths?",
+        "What do you consider your key strengths?",
+        "Describe your top skills",
+        "What are you best at?"
+      ],
+      "answer_long": "End-to-end ownership, problem solving, backend development, architecture thinking, and translating ambiguous requirements into working solutions.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "weakness",
+      "intent": "candidate_weakness",
+      "canonical_question": "What is your greatest weakness or area of growth?",
+      "match_phrases": [
+        "What is your greatest weakness?",
+        "What is your area of growth?",
+        "Describe a weakness",
+        "What would you like to improve about yourself?"
+      ],
+      "answer_long": "I tend to hold myself to a high standard and can spend extra time refining a solution when a faster first version would be sufficient. I've gotten better at balancing quality with iteration speed and aligning effort to the business need.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "ideal_environment",
+      "intent": "ideal_work_environment",
+      "canonical_question": "Describe your ideal work environment.",
+      "match_phrases": [
+        "Describe your ideal work environment",
+        "What kind of work environment do you thrive in?",
+        "What is your preferred company culture?",
+        "Ideal team or workplace?"
+      ],
+      "answer_long": "A collaborative environment with strong ownership, clear priorities, thoughtful technical discussion, and room to solve real problems without unnecessary process overhead.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "five_year_plan",
+      "intent": "career_goals_5yr",
+      "canonical_question": "Where do you see yourself in 5 years?",
+      "match_phrases": [
+        "Where do you see yourself in 5 years?",
+        "What are your long-term career goals?",
+        "Where do you see your career heading?",
+        "Five year plan"
+      ],
+      "answer_long": "I see myself as a more senior engineer with a strong track record of technical ownership, system design, and mentorship, contributing meaningfully to product and engineering direction.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "experience_with_skill",
+      "intent": "skill_experience_boolean",
+      "canonical_question": "Do you have experience with [skill]?",
+      "match_phrases": [
+        "Do you have experience with",
+        "Have you worked with",
+        "Are you proficient in",
+        "Do you know",
+        "Familiarity with"
+      ],
+      "answer": null,
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "dynamic",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Cross-reference against skills list in profile.json. Auto-fill Yes for listed skills, flag unknown skills for review."
+    },
+    {
+      "id": "criminal_history",
+      "intent": "criminal_history",
+      "canonical_question": "Have you ever been convicted of a felony?",
+      "match_phrases": [
+        "Have you ever been convicted of a felony?",
+        "Do you have a criminal record?",
+        "Have you been convicted of a crime?",
+        "Criminal history",
+        "Felony conviction"
+      ],
+      "answer": "No",
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "age_18_plus",
+      "intent": "age_verification",
+      "canonical_question": "Are you at least 18 years of age?",
+      "match_phrases": [
+        "Are you at least 18 years of age?",
+        "Are you 18 or older?",
+        "Age requirement",
+        "Are you over 18?"
+      ],
+      "answer": "Yes",
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "highest_education",
+      "intent": "highest_education_level",
+      "canonical_question": "What is your highest level of education?",
+      "match_phrases": [
+        "What is your highest level of education?",
+        "Highest education level",
+        "Education level",
+        "Highest degree obtained",
+        "What is the highest degree you have earned?"
+      ],
+      "answer": "Bachelor's Degree",
+      "answer_long": "Bachelor of Science in Information Technology from University of Central Florida.",
+      "field_type": [
+        "select",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "gpa",
+      "intent": "gpa",
+      "canonical_question": "What was your GPA?",
+      "match_phrases": [
+        "What was your GPA?",
+        "GPA",
+        "Grade point average",
+        "Cumulative GPA"
+      ],
+      "answer": "3.67",
+      "field_type": [
+        "text",
+        "number"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "graduation_year",
+      "intent": "graduation_year",
+      "canonical_question": "What year did you graduate?",
+      "match_phrases": [
+        "What year did you graduate?",
+        "Graduation year",
+        "Year of graduation",
+        "When did you graduate?"
+      ],
+      "answer": "2023",
+      "field_type": [
+        "text",
+        "number",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "notice_period",
+      "intent": "notice_period",
+      "canonical_question": "What is your notice period?",
+      "match_phrases": [
+        "What is your notice period?",
+        "Notice period",
+        "How much notice do you need to give?",
+        "When can you start after accepting an offer?"
+      ],
+      "answer": "2 weeks",
+      "answer_long": "Approximately two weeks from acceptance of offer.",
+      "field_type": [
+        "text",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "conflict_of_interest",
+      "intent": "conflict_of_interest",
+      "canonical_question": "Do you have any conflicts of interest?",
+      "match_phrases": [
+        "Do you have any conflicts of interest?",
+        "Conflict of interest",
+        "Are you aware of any conflicts of interest?"
+      ],
+      "answer": "No",
+      "field_type": [
+        "boolean",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "disability_accommodation",
+      "intent": "disability_accommodation",
+      "canonical_question": "Do you require any accommodations during the interview process?",
+      "match_phrases": [
+        "Do you require any accommodations?",
+        "Accommodation request",
+        "Do you need accommodations for the interview?",
+        "Reasonable accommodation"
+      ],
+      "answer": "No",
+      "field_type": [
+        "boolean",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "certifications_held",
+      "intent": "certifications",
+      "canonical_question": "Do you hold any relevant certifications?",
+      "match_phrases": [
+        "Do you hold any certifications?",
+        "Certifications",
+        "Professional certifications",
+        "List any relevant certifications"
+      ],
+      "answer": "None currently held",
+      "answer_long": "I do not currently hold professional certifications, though I am open to pursuing relevant ones.",
+      "field_type": [
+        "text",
+        "boolean"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Update when certifications are obtained."
+    },
+    {
+      "id": "languages_spoken",
+      "intent": "languages_spoken",
+      "canonical_question": "What languages do you speak?",
+      "match_phrases": [
+        "What languages do you speak?",
+        "Languages spoken",
+        "Language proficiency",
+        "Do you speak any other languages?"
+      ],
+      "answer": "English",
+      "answer_long": "English (native fluency).",
+      "field_type": [
+        "text",
+        "select"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "referred_by",
+      "intent": "referral_name",
+      "canonical_question": "Were you referred by anyone? If so, who?",
+      "match_phrases": [
+        "Were you referred by anyone?",
+        "Referral name",
+        "Who referred you?",
+        "Employee referral",
+        "Do you know anyone who works here?"
+      ],
+      "answer": "",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "low",
+      "auto_submit": false,
+      "requires_review": true,
+      "notes": "Fill with referrer name if applicable."
+    },
+    {
+      "id": "team_size_preference",
+      "intent": "team_size_preference",
+      "canonical_question": "What size team do you prefer working with?",
+      "match_phrases": [
+        "What size team do you prefer?",
+        "Team size preference",
+        "Preferred team size",
+        "How large of a team do you prefer?"
+      ],
+      "answer_long": "I work well in small to mid-sized teams (3-10 people) where there is strong collaboration and individual ownership.",
+      "field_type": [
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "management_experience",
+      "intent": "management_experience",
+      "canonical_question": "Do you have management or leadership experience?",
+      "match_phrases": [
+        "Do you have management experience?",
+        "Leadership experience",
+        "Have you managed a team?",
+        "Number of direct reports",
+        "Management experience"
+      ],
+      "answer": "No",
+      "answer_long": "I have not formally managed a team, but I have taken ownership of projects, mentored teammates, and contributed to technical decision-making independently.",
+      "field_type": [
+        "boolean",
+        "text"
+      ],
+      "confidence": "high",
+      "auto_submit": false,
+      "requires_review": true
+    },
+    {
+      "id": "agree_terms",
+      "intent": "terms_and_conditions",
+      "canonical_question": "Do you agree to the terms and conditions?",
+      "match_phrases": [
+        "Do you agree to the terms and conditions?",
+        "I agree to the terms",
+        "Terms and conditions",
+        "I certify that the information provided is accurate",
+        "I acknowledge",
+        "Please confirm"
+      ],
+      "answer": "Yes",
+      "field_type": [
+        "checkbox",
+        "boolean"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    },
+    {
+      "id": "equal_opportunity",
+      "intent": "eeo_acknowledgment",
+      "canonical_question": "Do you acknowledge the Equal Employment Opportunity statement?",
+      "match_phrases": [
+        "Equal Employment Opportunity",
+        "EEO acknowledgment",
+        "I acknowledge the EEO policy",
+        "Equal opportunity employer"
+      ],
+      "answer": "Yes",
+      "field_type": [
+        "checkbox",
+        "boolean"
+      ],
+      "confidence": "high",
+      "auto_submit": true,
+      "requires_review": false
+    }
+  ],
+  "behavioral_stories": [
+    {
+      "id": "story_leadership",
+      "themes": [
+        "leadership",
+        "ownership",
+        "independence",
+        "trust"
+      ],
+      "situation": "Stepped into a more independent role on a small engineering team with less direct oversight.",
+      "action": "Handled technical decision-making, supported project execution, and carried backend responsibilities independently.",
+      "result": "Increased trust from leadership, broader ownership of critical systems, and stronger positioning as a go-to backend contributor.",
+      "relevant_for": [
+        "backend",
+        "fullstack",
+        "leadership"
+      ]
+    },
+    {
+      "id": "story_ambiguity",
+      "themes": [
+        "ambiguity",
+        "problem_solving",
+        "data",
+        "communication"
+      ],
+      "situation": "Worked on AI and sensor-data efforts where the data was complex and unstructured, needing to become client-usable.",
+      "action": "Interpreted patterns, supported analysis and visualization, and translated technical findings into actionable insight.",
+      "result": "Delivered client-facing analysis that supported decision-making around locomotive maintenance and fault detection.",
+      "relevant_for": [
+        "ai",
+        "data",
+        "backend"
+      ]
+    },
+    {
+      "id": "story_e2e_product",
+      "themes": [
+        "end_to_end",
+        "product_development",
+        "initiative",
+        "architecture"
+      ],
+      "situation": "Identified personal and family needs that could be solved with custom software.",
+      "action": "Built personal products and apps from concept and architecture through implementation and refinement, handling every stage independently.",
+      "result": "Delivered functional products demonstrating full-lifecycle ownership and practical architecture skills.",
+      "relevant_for": [
+        "fullstack",
+        "product",
+        "mobile"
+      ]
+    }
+  ],
+  "demographic_defaults": {
+    "gender": "Decline to self-identify",
+    "race_ethnicity": "Decline to self-identify",
+    "veteran_status": "I am not a protected veteran",
+    "disability_status": "Decline to self-identify",
+    "auto_fill": true,
+    "common_select_values": {
+      "gender_decline": [
+        "Decline to self-identify",
+        "Prefer not to say",
+        "I do not wish to answer",
+        "Decline"
+      ],
+      "race_decline": [
+        "Decline to self-identify",
+        "Prefer not to say",
+        "Two or more races (not Hispanic or Latino)",
+        "Decline"
+      ],
+      "veteran_decline": [
+        "I am not a protected veteran",
+        "Prefer not to say",
+        "Decline to self-identify",
+        "No"
+      ],
+      "disability_decline": [
+        "Decline to self-identify",
+        "Prefer not to answer",
+        "I do not wish to answer",
+        "Decline"
+      ]
+    }
+  }
+}

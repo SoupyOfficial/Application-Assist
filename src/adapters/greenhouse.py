@@ -12,11 +12,7 @@ Greenhouse forms are relatively clean and consistent:
 import sys
 
 from src.adapters.base import BaseAdapter
-from src.engine.normalizer import normalize_question
-from src.engine.matcher import match_answer
-from src.engine.confidence import score_confidence, get_fill_decision
-from src.engine.filler import fill_field, get_label_for_input
-from src.llm.drafter import draft_answer
+from src.engine.filler import get_label_for_input
 
 
 class GreenhouseAdapter(BaseAdapter):
@@ -88,59 +84,7 @@ class GreenhouseAdapter(BaseAdapter):
 
         return fields
 
-    def fill_form(self, page, profile: dict, answers: dict, mode: str) -> list:
-        """Fill a Greenhouse application form."""
-        fields = self.detect_fields(page)
-        results = []
-
-        for field in fields:
-            label = field.get("label", "")
-            field_type = field.get("field_type", "text")
-            context = field.get("section", "")
-
-            if field_type == "file":
-                resume_path = profile.get("_resume_path")
-                if resume_path:
-                    filled = fill_field(page, field, resume_path, "file")
-                    results.append({
-                        "field": field, "proposed_answer": resume_path,
-                        "confidence": 1.0, "source": "profile",
-                        "requires_review": False, "filled": filled,
-                    })
-                    if filled:
-                        page.wait_for_timeout(2000)
-                        # Re-detect after upload
-                        fields = self.detect_fields(page)
-                continue
-
-            intent = normalize_question(label, profile, context)
-            match_result = match_answer(intent, profile, answers)
-            answer = match_result.get("answer") or match_result.get("answer_long")
-            source = match_result.get("source", "none")
-
-            if not answer and field_type in ("textarea",):
-                answer = draft_answer(label, profile, context)
-                if answer:
-                    source = "llm"
-                    match_result["confidence"] = "medium"
-                    match_result["requires_review"] = True
-
-            score = score_confidence(match_result)
-            decision = get_fill_decision(score, match_result, profile)
-
-            filled = False
-            if answer and decision in ("auto_fill", "fill_and_flag"):
-                filled = fill_field(page, field, str(answer), field_type)
-
-            results.append({
-                "field": field, "proposed_answer": answer,
-                "confidence": score, "source": source,
-                "requires_review": match_result.get("requires_review", False) or decision == "fill_and_flag",
-                "filled": filled, "intent": intent,
-                "notes": match_result.get("notes", ""),
-            })
-
-        return results
+    # fill_form() inherited from BaseAdapter (multi-page aware, shared pipeline)
 
     def submit(self, page) -> bool:
         """Submit the Greenhouse application."""

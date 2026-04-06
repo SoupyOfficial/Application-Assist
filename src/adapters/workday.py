@@ -16,14 +16,15 @@ Known data-automation-id patterns:
 import sys
 
 from src.adapters.base import BaseAdapter
-from src.engine.normalizer import normalize_question
-from src.engine.matcher import match_answer
-from src.engine.confidence import score_confidence, get_fill_decision
+from src.adapters.pipeline import run_fill_pipeline
 from src.engine.filler import fill_field, get_label_for_input
-from src.llm.drafter import draft_answer
+from src.browser.helpers import wait_for_navigation_settle
 
 
 class WorkdayAdapter(BaseAdapter):
+
+    # Workday is always multi-step
+    multi_page = True
 
     def detect_fields(self, page) -> list:
         """Detect form fields on the current Workday step/page using data-automation-id."""
@@ -102,15 +103,24 @@ class WorkdayAdapter(BaseAdapter):
         for step_num in range(10):
             print(f"[info] Workday: processing step {step_num + 1}")
 
-            fields = self.detect_fields(page)
+            try:
+                fields = self.detect_fields(page)
+            except Exception as e:
+                print(f"[warn] Workday: detect_fields failed on step {step_num + 1}: {e}")
+                break
+
             if not fields:
                 print("[info] Workday: no fields on current step, checking for next")
                 if not self._try_next_step(page):
                     break
                 continue
 
-            step_results = self._fill_step(page, fields, profile, answers, mode)
-            all_results.extend(step_results)
+            try:
+                step_results = self._fill_step(page, fields, profile, answers, mode)
+                all_results.extend(step_results)
+            except Exception as e:
+                print(f"[warn] Workday: fill failed on step {step_num + 1}: {e}")
+                break
 
             # Check if we're on the review/submit step
             if self._is_review_step(page):
@@ -124,55 +134,12 @@ class WorkdayAdapter(BaseAdapter):
         return all_results
 
     def _fill_step(self, page, fields, profile, answers, mode) -> list:
-        """Fill fields on a single Workday step."""
-        results = []
-
-        for field in fields:
-            label = field.get("label", "")
-            field_type = field.get("field_type", "text")
-            context = field.get("section", "")
-
-            if field_type == "file":
-                resume_path = profile.get("_resume_path")
-                if resume_path:
-                    filled = fill_field(page, field, resume_path, "file")
-                    results.append({
-                        "field": field, "proposed_answer": resume_path,
-                        "confidence": 1.0, "source": "profile",
-                        "requires_review": False, "filled": filled,
-                    })
-                    if filled:
-                        page.wait_for_timeout(3000)
-                continue
-
-            intent = normalize_question(label, profile, context)
-            match_result = match_answer(intent, profile, answers)
-            answer = match_result.get("answer") or match_result.get("answer_long")
-            source = match_result.get("source", "none")
-
-            if not answer and field_type in ("textarea",):
-                answer = draft_answer(label, profile, context)
-                if answer:
-                    source = "llm"
-                    match_result["confidence"] = "medium"
-                    match_result["requires_review"] = True
-
-            score = score_confidence(match_result)
-            decision = get_fill_decision(score, match_result, profile)
-
-            filled = False
-            if answer and decision in ("auto_fill", "fill_and_flag"):
-                filled = fill_field(page, field, str(answer), field_type)
-
-            results.append({
-                "field": field, "proposed_answer": answer,
-                "confidence": score, "source": source,
-                "requires_review": match_result.get("requires_review", False) or decision == "fill_and_flag",
-                "filled": filled, "intent": intent,
-                "notes": match_result.get("notes", ""),
-            })
-
-        return results
+        """Fill fields on a single Workday step using the shared pipeline."""
+        return run_fill_pipeline(
+            page, fields, profile, answers, mode,
+            resume_wait_ms=3000,
+            redetect_after_upload=lambda p: self.detect_fields(p),
+        )
 
     def _try_next_step(self, page) -> bool:
         """Click the Next/Continue button to advance to the next Workday step."""
@@ -186,8 +153,7 @@ class WorkdayAdapter(BaseAdapter):
             btn = page.locator(sel)
             if btn.count() > 0 and btn.first.is_visible():
                 btn.first.click()
-                page.wait_for_load_state("networkidle")
-                page.wait_for_timeout(1000)
+                wait_for_navigation_settle(page)
                 return True
         return False
 

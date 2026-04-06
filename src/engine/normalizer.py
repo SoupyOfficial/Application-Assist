@@ -15,7 +15,7 @@ Normalization pipeline:
 """
 
 import re
-import difflib
+from rapidfuzz import fuzz, process
 
 
 # Threshold for fuzzy match acceptance
@@ -67,6 +67,68 @@ LABEL_TO_PROFILE_INTENT = {
     "cover letter":     "cover_letter",
     "resume":           "resume",
     "cv":               "resume",
+    # Answer bank intents — common form label phrasings
+    "salary expectations":          "salary_expectations",
+    "desired salary":               "salary_expectations",
+    "expected compensation":        "salary_expectations",
+    "compensation expectations":    "salary_expectations",
+    "start date":                   "earliest_start_date",
+    "earliest start date":          "earliest_start_date",
+    "available start date":         "earliest_start_date",
+    "when can you start":           "earliest_start_date",
+    "notice period":                "notice_period",
+    "how much notice":              "notice_period",
+    "willing to relocate":          "willing_to_relocate",
+    "open to relocation":           "willing_to_relocate",
+    "relocation":                   "willing_to_relocate",
+    "willing to travel":            "willing_to_travel",
+    "travel requirements":          "willing_to_travel",
+    "work arrangement":             "work_arrangement",
+    "preferred work arrangement":   "work_arrangement",
+    "remote hybrid onsite":         "work_arrangement",
+    "background check":             "background_check_consent",
+    "background check consent":     "background_check_consent",
+    "drug screening":               "drug_screening_consent",
+    "drug test":                    "drug_screening_consent",
+    "noncompete":                   "noncompete_agreement",
+    "non compete":                  "noncompete_agreement",
+    "noncompete agreement":         "noncompete_agreement",
+    "how did you hear about us":    "how_did_you_hear",
+    "how did you hear":             "how_did_you_hear",
+    "referral source":              "how_did_you_hear",
+    "source":                       "how_did_you_hear",
+    "previously employed":          "previous_employee",
+    "previous employee":            "previous_employee",
+    "have you worked here before":  "previous_employee",
+    "security clearance":           "security_clearance",
+    "clearance level":              "security_clearance",
+    "criminal history":             "criminal_history",
+    "felony":                       "criminal_history",
+    "convicted":                    "criminal_history",
+    "age verification":             "age_verification",
+    "are you 18":                   "age_verification",
+    "are you at least 18":          "age_verification",
+    "education level":              "highest_education_level",
+    "highest education":            "highest_education_level",
+    "highest degree":               "highest_education_level",
+    "gpa":                          "gpa",
+    "grade point average":          "gpa",
+    "graduation year":              "graduation_year",
+    "year of graduation":           "graduation_year",
+    "certifications":               "certifications",
+    "professional certifications":  "certifications",
+    "languages":                    "languages_spoken",
+    "languages spoken":             "languages_spoken",
+    "referral":                     "referral_name",
+    "referral name":                "referral_name",
+    "who referred you":             "referral_name",
+    "conflict of interest":         "conflict_of_interest",
+    "accommodation":                "disability_accommodation",
+    "disability accommodation":     "disability_accommodation",
+    "reasonable accommodation":     "disability_accommodation",
+    "terms and conditions":         "terms_and_conditions",
+    "eeo":                          "eeo_acknowledgment",
+    "equal employment":             "eeo_acknowledgment",
 }
 
 
@@ -82,11 +144,13 @@ def _match_profile_field_label(cleaned_label: str) -> str | None:
     """Check if a cleaned label maps directly to a profile field intent."""
     if cleaned_label in LABEL_TO_PROFILE_INTENT:
         return LABEL_TO_PROFILE_INTENT[cleaned_label]
-    matches = difflib.get_close_matches(
-        cleaned_label, LABEL_TO_PROFILE_INTENT.keys(), n=1, cutoff=0.85
-    )
-    if matches:
-        return LABEL_TO_PROFILE_INTENT[matches[0]]
+    # Only fuzzy match short labels (long questions should go through answers matching)
+    if len(cleaned_label.split()) <= 5:
+        matches = process.extractOne(
+            cleaned_label, LABEL_TO_PROFILE_INTENT.keys(), score_cutoff=85
+        )
+        if matches:
+            return LABEL_TO_PROFILE_INTENT[matches[0]]
     return None
 
 
@@ -133,7 +197,7 @@ def normalize_question(label_text: str, answers: dict = None, threshold: float =
             phrase_cleaned = _clean(phrase)
             if not phrase_cleaned:
                 continue
-            score = difflib.SequenceMatcher(None, cleaned, phrase_cleaned).ratio()
+            score = fuzz.ratio(cleaned, phrase_cleaned) / 100.0
             if score > best_score:
                 best_score = score
                 best_intent = entry["intent"]

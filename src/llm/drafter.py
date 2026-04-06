@@ -49,14 +49,19 @@ def draft_answer(question: str, profile: dict, context: str = "") -> str:
     user_message += f"\n\nBackground: {profile_summary}"
 
     try:
+        from src.llm.retry import call_with_retry
         client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
+        response = call_with_retry(
+            client,
             model="claude-sonnet-4-6",
             max_tokens=512,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
         return response.content[0].text.strip()
+    except anthropic.AuthenticationError as e:
+        print(f"[error] Invalid ANTHROPIC_API_KEY: {e}", file=sys.stderr)
+        return ""
     except (anthropic.APIError, KeyError) as e:
         print(f"[warn] LLM draft_answer failed: {e}", file=sys.stderr)
         return ""
@@ -78,9 +83,10 @@ def build_profile_summary(profile: dict) -> str:
     # Work history
     for job in profile.get("work_history", []):
         line = f"- {job.get('title', '')} at {job.get('company', '')}"
-        dates = job.get('dates', {})
-        if dates:
-            line += f" ({dates.get('start', '')}–{dates.get('end', 'Present')})"
+        start = job.get("start_date", "")
+        end = job.get("end_date", "Present") or "Present"
+        if start:
+            line += f" ({start}–{end})"
         techs = job.get("technologies", [])
         if techs:
             line += f" [{', '.join(techs[:6])}]"
@@ -88,7 +94,14 @@ def build_profile_summary(profile: dict) -> str:
 
     # Education
     for edu in profile.get("education", []):
-        parts.append(f"- {edu.get('degree', '')} {edu.get('field', '')} from {edu.get('institution', '')} ({edu.get('graduation_year', '')})")
+        degree = edu.get("degree_type", "") or ""
+        field = edu.get("field_of_study", "") or ""
+        institution = edu.get("institution", "") or ""
+        grad = edu.get("graduation_date") or ""
+        line = f"- {degree} {field} from {institution}".strip()
+        if grad:
+            line += f" ({grad})"
+        parts.append(line)
 
     # Top skills
     skills = [s["name"] for s in profile.get("skills", []) if s.get("include")]
@@ -101,12 +114,19 @@ def build_profile_summary(profile: dict) -> str:
 
     # Compensation
     comp = profile.get("compensation", {})
-    if comp.get("salary_range"):
-        parts.append(f"Salary range: {comp['salary_range']}")
+    sal_min = comp.get("salary_range_min")
+    sal_max = comp.get("salary_range_max")
+    if sal_min and sal_max:
+        parts.append(f"Salary range: ${sal_min:,}–${sal_max:,}")
 
     # Work auth
     work_auth = profile.get("work_authorization", {})
-    if work_auth.get("status"):
-        parts.append(f"Work auth: {work_auth['status']}")
+    citizenship = work_auth.get("citizenship")
+    if citizenship:
+        authorized = work_auth.get("authorized_in_country")
+        auth_str = f"Work auth: {citizenship}"
+        if isinstance(authorized, str):
+            auth_str += f", authorized in {authorized}"
+        parts.append(auth_str)
 
     return "\n".join(parts)

@@ -183,4 +183,12 @@ def discover_fields(page) -> list:
             "placeholder": None,
         })
 
+    # --- Shadow DOM fallback ---
+    # If we found suspiciously few fields, attempt a piercing scan
+    if len(fields) < 2:
+        from src.browser.helpers import discover_fields_with_shadow_dom
+        shadow_fields = discover_fields_with_shadow_dom(page)
+        if len(shadow_fields) > len(fields):
+            fields = shadow_fields
+
     return fields

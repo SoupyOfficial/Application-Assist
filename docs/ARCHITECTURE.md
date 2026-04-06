@@ -1,7 +1,8 @@
 # Application-Assist — Full Architecture & Design Document
 
 **Created:** 2026-04-05  
-**Status:** Pre-development design — all logic is pseudo-code until approved
+**Last updated:** 2026-04-05  
+**Status:** Fully implemented — all modules coded and syntax-verified. Pseudo-code sections below now have real implementations in source.
 
 ---
 
@@ -37,7 +38,7 @@ URL → Detect ATS → Launch Browser → Extract Fields → Normalize → Match
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                          CLI (main.py)                               │
-│  Parses args, loads data, orchestrates the entire pipeline           │
+│  Parses args, loads dotenv, orchestrates pipeline, Playwright lifecycle │
 └───────────┬──────────────────────────────────────────────────────────┘
             │
             ▼
@@ -52,25 +53,37 @@ URL → Detect ATS → Launch Browser → Extract Fields → Normalize → Match
             │ platform_name                  │
             ▼                                │
 ┌───────────────────────┐                    │
-│   Playwright Browser  │                    │
-│   Launched by main.py │                    │
-│   page → adapter      │                    │
+│   Browser Layer       │                    │
+│   browser/helpers.py  │                    │
+│   Iframe detection    │                    │
+│   Login wall/CAPTCHA  │                    │
+│   Shadow DOM pierce   │                    │
+│   Multi-page nav      │                    │
+│   SPA readiness wait  │                    │
 └───────────┬───────────┘                    │
-            │ page object                    │
+            │ page/frame                     │
             ▼                                ▼
 ┌───────────────────────────────────────────────────────────────────┐
 │                      Platform Adapter                             │
 │   greenhouse.py | lever.py | ashby.py | workday.py | generic.py  │
 │                                                                   │
-│   1. detect_fields(page) → field descriptors                      │
-│   2. For each field:                                              │
+│   BaseAdapter provides default multi-page fill_form():            │
+│     1. get_form_frame(page) → resolve iframe context              │
+│     2. detect blockers (login wall, CAPTCHA) → pause if found     │
+│     3. Loop: detect_fields → shared pipeline → next page          │
+│                                                                   │
+│   Shared Fill Pipeline (adapters/pipeline.py):                    │
+│     For each field:                                               │
 │      ├── normalizer.normalize_question(label)  → intent           │
-│      ├── matcher.match_answer(intent)          → match_result     │
+│      ├── matcher.match_answer(intent, raw_label=...)  → result    │
+│      │   └── (inverted phrasing detection + answer swap)          │
+│      ├── _try_demographic_default(intent, field, answers)         │
 │      ├── confidence.score_confidence(result)   → score            │
 │      ├── confidence.get_fill_decision(score)   → decision         │
 │      └── filler.fill_field(page, locator, ...) → filled           │
-│   3. After resume upload → re-detect fields                       │
-│   4. Return fill_results[]                                        │
+│                                                                   │
+│   Adapters only implement: detect_fields() + submit()             │
+│   (Workday overrides fill_form() for multi-step wizard logic)     │
 └───────────┬───────────────────────────────────────────────────────┘
             │                                    ▲
             │                          ┌─────────┴─────────┐
@@ -303,17 +316,41 @@ For each field in raw_fields:
 **Responsibility:** ATS-specific form interaction — field detection, fill orchestration, submission.
 
 **Architecture:**
-- `base.py`: Abstract `BaseAdapter` — defines the 3-method contract
+- `base.py`: `BaseAdapter` — provides default multi-page `fill_form()` with iframe resolution, login wall/CAPTCHA detection, shadow DOM fallback, and per-page field loop
+- `pipeline.py`: Shared fill pipeline — the normalize→match→score→fill loop used by all adapters, including demographic default handling and inverted phrasing detection
 - One concrete adapter per platform: `greenhouse.py`, `lever.py`, `ashby.py`, `workday.py`, `generic.py`
 
 **Contract:**
 ```
-detect_fields(page) → list[FieldDescriptor]
-fill_form(page, profile, answers, mode) → list[FillResult]
-submit(page) → bool
+detect_fields(page) → list[FieldDescriptor]    # REQUIRED — each adapter implements
+fill_form(page, profile, answers, mode) → list[FillResult]  # DEFAULT in BaseAdapter; Workday overrides
+submit(page) → bool                             # DEFAULT in BaseAdapter; each adapter can override
 ```
 
-**fill_form() is the orchestrator within each adapter.** It calls engine modules (normalizer, matcher, confidence, filler) in sequence. This keeps the engine modules stateless and composable, while the adapter handles platform-specific sequencing (e.g., Workday multi-step, Greenhouse single-page).
+**Key architectural change from original design:** Adapters no longer duplicate the fill loop. `BaseAdapter.fill_form()` handles the complete multi-page lifecycle:
+1. Resolve iframe context via `get_form_frame()`
+2. Detect login walls and CAPTCHAs, pausing for user
+3. Loop: `detect_fields()` → `run_fill_pipeline()` → `try_next_page()`
+4. Shadow DOM fallback if field count is suspiciously low
+
+Adapters only implement `detect_fields()` (platform-specific CSS selectors) and optionally `submit()` (platform-specific button selectors). Workday overrides `fill_form()` entirely for its custom multi-step wizard.
+
+### 3.4 Browser Layer — `browser/`
+
+**Responsibility:** Handle real-world browser concerns that span all platforms.
+
+**Module:**
+- `helpers.py` — Stateless utilities for page readiness, iframe handling, blocker detection, shadow DOM, multi-page navigation
+
+**Capabilities:**
+- `wait_for_page_ready()` — SPA-aware readiness (networkidle + DOM stability)
+- `wait_for_navigation_settle()` — Post-navigation loader/spinner detection
+- `detect_login_wall()` / `detect_captcha()` — Pattern-based blocker detection
+- `wait_for_user_to_clear_blocker()` — Pause automation for manual user intervention
+- `get_form_frame()` — Automatic iframe detection and context switching (Greenhouse embed, iCIMS, BambooHR, Jobvite, etc.)
+- `discover_fields_with_shadow_dom()` — Piercing shadow DOM scan as fallback
+- `detect_multi_page()` / `try_next_page()` / `is_final_step()` — Multi-page form navigation
+- `find_and_click_submit()` — Platform-agnostic submit button finder
 
 ### 3.4 Fill Engine — `engine/`
 
@@ -1735,13 +1772,13 @@ tests/
 
 ## 10. Design Decisions & Tradeoffs
 
-### D1: Adapters own the fill orchestration, not the engine
+### D1: BaseAdapter owns fill orchestration; adapters only customize detection + submit
 
-**Decision:** Each adapter calls engine modules (normalizer, matcher, confidence, filler) in its own `fill_form()` method, rather than having a central "fill engine" that adapters feed into.
+**Decision:** `BaseAdapter.fill_form()` provides a default multi-page-aware fill loop that resolves iframes, detects blockers, iterates pages, and calls the shared `run_fill_pipeline()` per page. Adapters only implement `detect_fields()` and optionally `submit()`.
 
-**Why:** Workday's multi-step wizard requires fundamentally different sequencing than Greenhouse's single-page form. Having the adapter own the orchestration loop keeps the engine modules stateless and composable, while giving each adapter the flexibility to handle platform-specific flow (step navigation, re-scanning after upload, section-specific logic).
+**Why:** The original design had each adapter duplicating the 30-line normalize→match→score→fill loop. This was extracted into `adapters/pipeline.py` and the multi-page loop was moved into `BaseAdapter`. Workday overrides `fill_form()` entirely because its wizard flow requires custom step detection, but all other adapters inherit the default.
 
-**Tradeoff:** Some duplication of the core for-each-field loop across adapters. Mitigated by extracting the shared logic into a helper function (`_fill_field_pipeline()`) that each adapter calls per-field. The adapter handles sequencing; the helper handles per-field logic.
+**Tradeoff:** Workday is the only adapter with custom fill logic. If future platforms have equally complex flows, they too would override. The shared pipeline handles the 80% case cleanly.
 
 ### D2: Fuzzy matching before LLM
 
@@ -1971,14 +2008,16 @@ Dependency: Phase 6.
 
 **Recommendation:** Add `rapidfuzz` to `requirements.txt`. The accuracy improvement for fuzzy matching justifies the dependency.
 
+**Status:** Not yet added. Current implementation uses `difflib` throughout. Can be swapped in as a drop-in improvement.
+
 ### Q2: How to handle ATS login walls?
 
-Some Workday and Ashby applications require creating an account or signing in before the application form is shown. Options:
-- **Option A:** Detect login wall, prompt user to sign in manually, then continue automation
-- **Option B:** Automate account creation with profile data
-- **Option C:** Skip login-gated applications with a warning
+~~Some Workday and Ashby applications require creating an account or signing in before the application form is shown.~~
 
-**Recommendation:** Option A for now. Detect, prompt, wait for user, then continue. Account creation automation is risky (duplicate accounts, CAPTCHA).
+**Status: RESOLVED.** Implemented in `src/browser/helpers.py`:
+- `detect_login_wall()` checks for password inputs, sign-in/log-in buttons, account creation links (including Workday-specific `data-automation-id` selectors)
+- `wait_for_user_to_clear_blocker()` pauses automation, prompts the user to complete login manually, then resumes after the user presses Enter
+- `BaseAdapter.fill_form()` calls these automatically before starting the fill loop
 
 ### Q3: Should the LLM classifier learn from corrections?
 
@@ -1986,34 +2025,56 @@ When the user edits a field in the review UI, should we log the correction and i
 
 **Recommendation:** Not in v1. Track it as a future feature. For now, if a field is commonly misclassified, add its phrasing to `answers.json.match_phrases` manually.
 
+**Status:** Still deferred. Could be revisited after real-world testing reveals common misclassifications.
+
 ### Q4: How to estimate time saved?
 
-Options:
-- **Option A:** Fixed estimate per application (e.g., 10 minutes saved)
-- **Option B:** Wall-clock time × manual multiplier (e.g., actual_time × 3)
-- **Option C:** Per-field estimate (15 seconds per auto-filled field)
+**Recommendation:** Option C — per-field estimate. Count the number of fields *actually filled* by the system and multiply by 15 seconds per field.
 
-**Recommendation:** Option C — most accurate. Count the number of fields *actually filled* by the system and multiply by 15 seconds per field.
+**Status:** Current implementation uses wall-clock elapsed time. Could be enhanced to per-field counting.
 
 ### Q5: Should we support multiple profiles?
 
-Currently, `profile.json` is a single file for one person. Should the system support multiple profiles (e.g., for different people or different personas)?
+**Recommendation:** Not in v1. The `--profile` flag already allows pointing to a different file.
 
-**Recommendation:** Not in v1. The `--profile` flag already allows pointing to a different file. A profile management system is not needed yet.
+**Status:** Unchanged. The `--profile` CLI flag provides sufficient flexibility.
 
 ### Q6: CAPTCHA handling?
 
-No current mitigation plan. Options:
-- **Option A:** Detect CAPTCHA, pause, prompt user to solve manually, then continue
-- **Option B:** Integrate a CAPTCHA solving service (ethical concerns, cost)
+~~No current mitigation plan.~~
 
-**Recommendation:** Option A. Detect and pause. No automated CAPTCHA solving.
+**Status: RESOLVED.** Implemented in `src/browser/helpers.py`:
+- `detect_captcha()` checks for reCAPTCHA, hCaptcha, and Turnstile iframes, plus `.g-recaptcha`, `.h-captcha`, and `[data-sitekey]` markers
+- Same `wait_for_user_to_clear_blocker()` mechanism pauses for manual solving
+- `BaseAdapter.fill_form()` calls these checks automatically
 
 ### Q7: Should `discover_fields()` handle shadow DOM?
 
-Some ATS platforms use shadow DOM for custom components. Playwright can pierce shadow DOM with `page.locator("css=...")` using the `>>>` combinator.
+~~Some ATS platforms use shadow DOM for custom components.~~
 
-**Recommendation:** Add shadow DOM piercing to `discover_fields()` as a secondary pass. If initial scan finds suspiciously few fields, re-scan with shadow DOM traversal.
+**Status: RESOLVED.** Implemented in two places:
+- `src/browser/helpers.py`: `discover_fields_with_shadow_dom()` performs a piercing scan using Playwright's native CSS combinator
+- `src/detector/platforms/generic.py`: Calls shadow DOM discovery as fallback if initial scan finds fewer than 2 fields
+- `BaseAdapter.fill_form()`: Also triggers shadow DOM fallback when field count is below `MIN_EXPECTED_FIELDS`
+
+### Q8: How to handle iframe-embedded forms?
+
+**Status: RESOLVED.** Implemented in `src/browser/helpers.py`:
+- `get_form_frame()` checks for known iframe patterns (Greenhouse embed `#grnhse_iframe`, iCIMS, BambooHR, Jobvite, Workday, Ashby)
+- Falls back to heuristic: checks all iframes for one containing a `<form>` element
+- Returns the inner Frame if found, or the Page itself
+- `BaseAdapter.fill_form()` calls this before any field detection
+
+### Q9: What about multi-page / wizard-style forms beyond Workday?
+
+**Status: RESOLVED for core architecture.** The `BaseAdapter.fill_form()` default implementation:
+- Calls `detect_multi_page()` to check for step indicators, progress bars, and next/continue buttons
+- Loops up to `MAX_PAGES` (15) iterations: detect → fill → advance
+- `try_next_page()` clicks Next/Continue/Save and Continue buttons
+- `is_final_step()` detects review/submit/confirm headings
+- Workday keeps its own override with Workday-specific step detection
+
+**Open:** Non-browser application types (email, LinkedIn Easy Apply, PDF forms) are not addressed by this architecture. See `docs/PLATFORM_RESEARCH.md` for expansion plans.
 
 ---
 

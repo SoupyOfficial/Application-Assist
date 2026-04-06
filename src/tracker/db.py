@@ -25,12 +25,15 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-DB_PATH = "applications.db"
+DB_PATH = str(Path(__file__).resolve().parent.parent.parent / "applications.db")
 
 
 def _get_connection() -> sqlite3.Connection:
-    """Return a connection to the SQLite database."""
-    return sqlite3.connect(DB_PATH)
+    """Return a connection to the SQLite database with WAL mode."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    return conn
 
 
 def init_db():
@@ -55,6 +58,9 @@ def init_db():
                 notes              TEXT
             )
         """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_applications_date ON applications(date)"
+        )
         conn.commit()
 
 
@@ -162,3 +168,13 @@ def get_stats() -> dict:
         "total_time_saved_seconds": time_saved,
         "by_platform": by_platform,
     }
+
+
+def get_today_count() -> int:
+    """Return the number of applications logged today."""
+    today = date.today().isoformat()
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM applications WHERE date = ?", (today,)
+        ).fetchone()
+        return row[0]

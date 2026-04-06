@@ -12,7 +12,7 @@ Match priority:
 """
 
 import re
-import difflib
+from rapidfuzz import fuzz
 
 
 # Map intent strings to dotpaths into profile.json
@@ -63,14 +63,15 @@ def _clean(text: str) -> str:
     return text.strip()
 
 
-def match_answer(intent: str, profile: dict, answers: dict) -> dict:
+def match_answer(intent: str, profile: dict, answers: dict, *, raw_label: str = "") -> dict:
     """
     Find the best answer for the given canonical intent.
 
     Args:
-        intent:  Canonical intent string (from normalizer.normalize_question).
-        profile: Parsed profile.json dict.
-        answers: Parsed answers.json dict.
+        intent:    Canonical intent string (from normalizer.normalize_question).
+        profile:   Parsed profile.json dict.
+        answers:   Parsed answers.json dict.
+        raw_label: Original field label text (used for inverted phrasing detection).
 
     Returns:
         Match result dict with intent, answer, confidence, source, etc.
@@ -78,15 +79,32 @@ def match_answer(intent: str, profile: dict, answers: dict) -> dict:
     # Priority 1: Exact intent match in answers.json
     for entry in answers.get("answers", []):
         if entry.get("intent") == intent:
+            answer = entry.get("answer")
+
+            # Template entries with null answer — fall through to skill lookup
+            if answer is None:
+                break
+
+            notes = entry.get("notes")
+            requires_review = entry.get("requires_review", True)
+
+            # Check for inverted phrasing
+            if entry.get("answer_inverted") is not None:
+                if _is_inverted_phrasing(raw_label, entry):
+                    answer = entry["answer_inverted"]
+                    inv_note = entry.get("answer_inverted_note", "Inverted phrasing detected")
+                    notes = f"{notes}; {inv_note}" if notes else inv_note
+                    requires_review = True
+
             return {
                 "intent":          intent,
-                "answer":          entry.get("answer"),
+                "answer":          answer,
                 "answer_long":     entry.get("answer_long"),
                 "confidence":      entry.get("confidence", "low"),
                 "source":          "answers_bank",
-                "requires_review": entry.get("requires_review", True),
+                "requires_review": requires_review,
                 "answer_entry":    entry,
-                "notes":           entry.get("notes"),
+                "notes":           notes,
                 "match_score":     1.0,
             }
 
@@ -107,6 +125,11 @@ def match_answer(intent: str, profile: dict, answers: dict) -> dict:
                 "match_score":     1.0,
             }
 
+    # Priority 2b: Skill-aware lookup — "Do you have experience with X?" / "Years of X experience"
+    skill_result = _try_skill_lookup(intent, profile, raw_label)
+    if skill_result is not None:
+        return skill_result
+
     # Priority 3: Fuzzy cross-match against match_phrases
     best_score = 0.0
     best_entry = None
@@ -117,7 +140,7 @@ def match_answer(intent: str, profile: dict, answers: dict) -> dict:
             phrase_cleaned = _clean(phrase)
             if not phrase_cleaned:
                 continue
-            score = difflib.SequenceMatcher(None, intent_cleaned, phrase_cleaned).ratio()
+            score = fuzz.ratio(intent_cleaned, phrase_cleaned) / 100.0
             if score > best_score:
                 best_score = score
                 best_entry = entry
@@ -146,3 +169,143 @@ def match_answer(intent: str, profile: dict, answers: dict) -> dict:
         "notes":           "No match found in answers bank or profile.",
         "match_score":     0.0,
     }
+
+
+# ---------------------------------------------------------------------------
+# Skill-aware lookup
+# ---------------------------------------------------------------------------
+
+_EXPERIENCE_YEARS_PATTERN = re.compile(
+    r"(?:(.+?)\s+experience\s*\(?years?\)?)"
+    r"|(?:years?\s+(?:of\s+)?experience\s+(?:with|in|using)\s+(.+?))\s*$"
+    r"|(?:years?\s+(?:of\s+)?(.+?)\s+experience)"
+    r"|(?:years?\s+(?:of\s+)?(?:exp\s+)?(?:with|in|using)\s+(.+?))\s*$",
+    re.IGNORECASE,
+)
+
+_SKILL_BOOLEAN_PATTERN = re.compile(
+    r"(?:do you have (?:experience|proficiency|familiarity) (?:with|in)\s+(.+?))\s*$"
+    r"|(?:have you (?:worked|used|programmed) (?:with|in)\s+(.+?))\s*$"
+    r"|(?:are you (?:proficient|experienced|familiar) (?:with|in)\s+(.+?))\s*$",
+    re.IGNORECASE,
+)
+
+
+def _try_skill_lookup(intent: str, profile: dict, raw_label: str) -> dict | None:
+    """
+    Check if the question is asking about a specific skill and resolve
+    from profile.skills[].
+
+    Handles two patterns:
+      - "Years of X experience" → returns the years number
+      - "Do you have experience with X?" → returns Yes/No
+    """
+    skills = profile.get("skills", [])
+    if not skills:
+        return None
+
+    label = raw_label or intent
+
+    # Build a quick name→skill map (case insensitive)
+    skill_map = {s["name"].lower(): s for s in skills if s.get("name")}
+
+    # Try years-of-experience pattern
+    m = _EXPERIENCE_YEARS_PATTERN.search(label)
+    if m:
+        skill_name = next((g for g in m.groups() if g), "").strip().rstrip("?").strip()
+        if skill_name:
+            skill = _find_skill(skill_name, skill_map)
+            if skill:
+                return {
+                    "intent":          intent,
+                    "answer":          str(skill.get("years", "")),
+                    "answer_long":     None,
+                    "confidence":      "high",
+                    "source":          "profile",
+                    "requires_review": False,
+                    "answer_entry":    None,
+                    "notes":           f"Skill match: {skill['name']} ({skill.get('years')} yrs)",
+                    "match_score":     1.0,
+                }
+
+    # Try boolean skill-experience pattern
+    m = _SKILL_BOOLEAN_PATTERN.search(label)
+    if m:
+        skill_name = (m.group(1) or m.group(2) or m.group(3) or "").strip().rstrip("?").strip()
+        if skill_name:
+            skill = _find_skill(skill_name, skill_map)
+            return {
+                "intent":          intent,
+                "answer":          "Yes" if skill else None,
+                "answer_long":     None,
+                "confidence":      "high" if skill else "none",
+                "source":          "profile" if skill else "none",
+                "requires_review": skill is None,
+                "answer_entry":    None,
+                "notes":           f"Skill match: {skill['name']}" if skill else f"Skill '{skill_name}' not in profile",
+                "match_score":     1.0 if skill else 0.0,
+            }
+
+    return None
+
+
+def _find_skill(name: str, skill_map: dict) -> dict | None:
+    """Find a skill by exact or fuzzy name match."""
+    name_lower = name.lower().strip()
+    # Exact match
+    if name_lower in skill_map:
+        return skill_map[name_lower]
+    # Fuzzy match
+    best_score = 0.0
+    best_skill = None
+    for key, skill in skill_map.items():
+        score = fuzz.ratio(name_lower, key) / 100.0
+        if score > best_score:
+            best_score = score
+            best_skill = skill
+    if best_score >= 0.8:
+        return best_skill
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Inverted phrasing detection
+# ---------------------------------------------------------------------------
+
+# Common patterns where the question asks the *opposite* of the stored intent.
+# e.g., intent = "requires_sponsorship" (answer: "No") but the label says
+# "Are you authorized to work ... without sponsorship?" (inverted → "Yes")
+_INVERSION_PATTERNS = [
+    (r"without\s+sponsorship", "sponsorship"),
+    (r"do\s+not\s+require\s+sponsorship", "sponsorship"),
+    (r"authorized\s+to\s+work.*without", "sponsorship"),
+    (r"will\s+not\s+require", "sponsorship"),
+    (r"not\s+require.*visa", "sponsorship"),
+]
+
+
+def _is_inverted_phrasing(raw_label: str, entry: dict) -> bool:
+    """
+    Detect whether the raw field label uses inverted phrasing relative
+    to the stored answer entry.
+
+    Uses entry-level ``inverted_phrasing`` patterns if provided, falling
+    back to hardcoded inversion heuristics.
+    """
+    if not raw_label:
+        return False
+
+    label_lower = raw_label.lower()
+
+    # Entry-specific patterns (from answers.json)
+    entry_patterns = entry.get("inverted_phrasing") or []
+    for pat in entry_patterns:
+        if pat.lower() in label_lower:
+            return True
+
+    # Hardcoded heuristics
+    for pattern, _category in _INVERSION_PATTERNS:
+        if re.search(pattern, label_lower):
+            return True
+
+    return False
