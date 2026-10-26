@@ -10,15 +10,21 @@ DATA_DIR = pathlib.Path(__file__).resolve().parent.parent / "data"
 
 @pytest.fixture
 def profile():
-    """Load the real profile.json."""
-    with open(DATA_DIR / "profile.json", encoding="utf-8") as f:
+    """Load profile.json (falls back to profile.example.json)."""
+    path = DATA_DIR / "profile.json"
+    if not path.exists():
+        path = DATA_DIR / "profile.example.json"
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
 @pytest.fixture
 def answers():
-    """Load the real answers.json."""
-    with open(DATA_DIR / "answers.json", encoding="utf-8") as f:
+    """Load answers.json (falls back to answers.example.json)."""
+    path = DATA_DIR / "answers.json"
+    if not path.exists():
+        path = DATA_DIR / "answers.example.json"
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
