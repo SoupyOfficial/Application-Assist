@@ -60,3 +60,4 @@ applications.db
 resumes/*.pdf
 .playwright/
 *.log
+/data/profile.json
